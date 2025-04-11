@@ -1,0 +1,39 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 18
+    commands:
+      - echo [INSTALL] Installing dependencies | tee -a /tmp/build.log
+      - npm install | tee -a /tmp/build.log
+      - echo [INSTALL] Installing sonar-scanner | tee -a /tmp/build.log
+      - curl -sSLo sonar.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip
+      - unzip sonar.zip | tee -a /tmp/build.log
+      - export PATH=$PATH:$(pwd)/sonar-scanner-5.0.1.3006-linux/bin
+
+  pre_build:
+    commands:
+      - echo [TEST] Running tests... | tee -a /tmp/build.log
+      - npm test -- --coverage | tee -a /tmp/build.log
+      - echo [LINT] Running ESLint... | tee -a /tmp/build.log
+      - npm run lint | tee -a /tmp/build.log
+      - echo [SECURITY] Running audit... | tee -a /tmp/build.log
+      - npm audit --audit-level=high || true
+
+  build:
+    commands:
+      - echo [BUILD] Building React app... | tee -a /tmp/build.log
+      - npm run build | tee -a /tmp/build.log
+      - echo [SONAR] Analyzing code with SonarCloud... | tee -a /tmp/build.log
+      - sonar-scanner | tee -a /tmp/build.log
+
+artifacts:
+  files:
+    - '**/*'
+
+logs:
+  cloudWatch:
+    groupName: "/codebuild/simple-reactjs-app"
+    streamName: "build-log"
+    status: ENABLED
